@@ -1,21 +1,7 @@
 import { el } from '../utils/dom.js';
-import { CATEGORIES, STATUSES, STATUS_COLORS } from '../utils/constants.js';
+import { STATUSES, STATUS_COLORS } from '../utils/constants.js';
 
-export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment, readonly = false, commentCounts = {} }) {
-  function makeSelect(options, selected, onChange) {
-    const select = el('select', {
-      className: 'border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-1 focus:ring-gray-400 h-[42px] appearance-none bg-[url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%2712%27%20height%3D%2712%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%236b7280%27%20stroke-width%3D%272%27%3E%3Cpath%20d%3D%27M6%209l6%206%206-6%27/%3E%3C/svg%3E")] bg-no-repeat bg-[right_0.75rem_center]  pr-8',
-      onchange: (e) => onChange(e.target.value),
-    });
-    if (readonly) select.disabled = true;
-    for (const [value, label] of Object.entries(options)) {
-      const opt = el('option', { value }, label);
-      if (value === selected) opt.selected = true;
-      select.appendChild(opt);
-    }
-    return select;
-  }
-
+export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment, readonly = false, commentCounts = {}, isSelected }) {
   function commentIcon() {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', '16');
@@ -86,7 +72,10 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
 
           const showLesson = hyp.status === 'success' || hyp.status === 'fail';
 
-          const hypRow = el('div', { className: 'ml-4 border-l-2 border-gray-100 pl-3' },
+          const hypSelClass = readonly && hyp.selected !== undefined
+            ? (hyp.selected ? 'border-l-gray-900' : 'opacity-50')
+            : '';
+          const hypRow = el('div', { className: `ml-4 border-l-2 border-gray-100 pl-3 ${hypSelClass}` },
             ...(readonly ? [el('span', { className: 'text-xs text-gray-400' }, '가설')] : []),
             el('div', { className: 'flex items-center gap-2' },
               readonly
@@ -152,7 +141,10 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
 
       renderHypotheses();
 
-      const reasonRow = el('div', { className: 'bg-gray-50/50 rounded-lg p-3 space-y-3' },
+      const reasonSelClass = readonly && reason.selected !== undefined
+        ? (reason.selected ? 'border-l-4 border-l-gray-900' : 'opacity-50')
+        : '';
+      const reasonRow = el('div', { className: `bg-gray-50/50 rounded-lg p-3 space-y-3 ${reasonSelClass}` },
         el('div', { className: 'flex items-center gap-2' },
           readonly
             ? el('span', { className: 'flex-1 text-gray-700' }, reason.text || '(미작성)')
@@ -166,10 +158,6 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
                   onUpdate();
                 },
               }),
-          makeSelect(CATEGORIES, reason.category || 'cognitive', (v) => {
-            blocker.reasons[ri].category = v;
-            onUpdate();
-          }),
           commentBtn(`_reason_${ri}`),
           ...(readonly ? [] : [
             el('button', {
@@ -191,7 +179,10 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
 
   renderReasons();
 
-  const container = el('div', { className: 'bg-white border border-gray-200 rounded-xl p-5' },
+  const selectedClass = readonly && isSelected !== undefined
+    ? (isSelected ? 'border-l-4 border-l-gray-900' : 'opacity-50')
+    : '';
+  const container = el('div', { className: `bg-white border border-gray-200 rounded-xl p-5 ${selectedClass}` },
     // Header
     el('div', { className: 'flex items-center justify-between mb-4' },
       el('span', { className: 'text-xs text-gray-400' }, `블록커 ${index + 1}`),

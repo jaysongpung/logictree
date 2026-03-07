@@ -124,6 +124,7 @@ export async function renderViewer(container, params) {
         onUpdate: () => {},
         onRemove: () => {},
         commentCounts: blockerCounts,
+        isSelected: blocker.selected,
         onComment: (suffix, anchorEl) => {
           showCommentPopup(`${project.id}_${i}${suffix}`, anchorEl);
         },

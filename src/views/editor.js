@@ -1,10 +1,40 @@
 import { el, clearAndAppend } from '../utils/dom.js';
 import { getState } from '../state.js';
 import { navigate } from '../router.js';
-import { getProject, saveProject, submitProject, getCommentCountsForProject } from '../firebase.js';
+import { getProject, saveProject, submitProject } from '../firebase.js';
 import { renderNavbar } from '../components/navbar.js';
-import { renderBlockerRow } from '../components/blockerRow.js';
-import { showCommentPopup } from '../components/commentPopup.js';
+import { CATEGORIES, STATUSES, STATUS_COLORS } from '../utils/constants.js';
+
+function toggleIcon(expanded) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', '16');
+  svg.setAttribute('height', '16');
+  svg.setAttribute('viewBox', '0 0 16 16');
+  svg.style.transition = 'transform 0.15s ease';
+  svg.style.transform = expanded ? 'rotate(90deg)' : 'rotate(0deg)';
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M6 3l5 5-5 5');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', expanded ? '#111827' : '#9ca3af');
+  path.setAttribute('stroke-width', '1.2');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  svg.appendChild(path);
+  return svg;
+}
+
+function makeSelect(options, selected, onChange) {
+  const select = el('select', {
+    className: 'border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none appearance-none bg-[url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%2712%27%20height%3D%2712%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%236b7280%27%20stroke-width%3D%272%27%3E%3Cpath%20d%3D%27M6%209l6%206%206-6%27/%3E%3C/svg%3E")] bg-no-repeat bg-[right_0.5rem_center] pr-6',
+    onchange: (e) => onChange(e.target.value),
+  });
+  for (const [value, label] of Object.entries(options)) {
+    const opt = el('option', { value }, label);
+    if (value === selected) opt.selected = true;
+    select.appendChild(opt);
+  }
+  return select;
+}
 
 export async function renderEditor(container, params) {
   const state = getState();
@@ -20,7 +50,7 @@ export async function renderEditor(container, params) {
   let projectId = params?.id || null;
   let goalValue = '';
   let blockers = [
-    { blocker: '', reasons: [{ text: '', category: 'cognitive', hypotheses: [{ text: '', status: 'pending', lessonLearned: '' }] }] },
+    { blocker: '', selected: false, reasons: [] },
   ];
 
   // Load existing project
@@ -34,98 +64,239 @@ export async function renderEditor(container, params) {
     content.innerHTML = '';
   }
 
-  const summaryBody = el('div', { className: 'hidden mt-2' });
-  const summaryToggle = el('button', {
-    className: 'hidden text-xs font-medium text-gray-500 uppercase tracking-wide flex items-center gap-1 hover:text-gray-700',
-    onclick: () => {
-      const isOpen = !summaryBody.classList.contains('hidden');
-      summaryBody.classList.toggle('hidden');
-      summaryToggle.querySelector('span').textContent = isOpen ? '▶' : '▼';
-    },
-  },
-    el('span', {}, '▶'),
-    '레슨런 요약',
-    el('span', { className: 'ml-1 text-gray-400' }),
-  );
-  const summaryContainer = el('div', { className: 'bg-gray-50 rounded-xl p-4 mb-6' }, summaryToggle, summaryBody);
+  const statusMsg = el('span', { className: 'text-sm text-gray-400' });
   const goalInput = el('input', {
     type: 'text',
     value: goalValue,
-    className: 'w-full text-lg border border-gray-200 rounded-xl px-4 py-3 mb-6 focus:outline-none focus:ring-2 focus:ring-gray-900',
+    className: 'w-full text-sm text-gray-900 placeholder-gray-400 bg-gray-100/70 rounded-lg px-3 py-3 mb-6 focus:outline-none focus:bg-gray-200/70',
     placeholder: '달성하고자 하는 목표를 입력하세요',
   });
 
-  const blockersContainer = el('div', { className: 'space-y-4 mb-6' });
+  const treeContainer = el('div', {});
 
-  function updateSummary() {
-    const lessons = [];
-    blockers.forEach((b) => {
-      (b.reasons || []).forEach((r) => {
-        (r.hypotheses || []).forEach((h) => {
-          if (h.lessonLearned) lessons.push(h.lessonLearned);
-        });
+  function renderTree() {
+    treeContainer.innerHTML = '';
+
+    function addParentHighlight(itemWrapper, row) {
+      itemWrapper.addEventListener('focusin', () => {
+        row.classList.remove('bg-gray-100/70');
+        row.classList.add('bg-blue-100/70');
       });
-    });
-    if (lessons.length === 0) {
-      summaryToggle.classList.add('hidden');
-      summaryBody.classList.add('hidden');
-      return;
-    }
-    summaryToggle.classList.remove('hidden');
-    summaryToggle.querySelector('span:last-child').textContent = `(${lessons.length})`;
-    summaryBody.innerHTML = '';
-    lessons.forEach((l) => {
-      summaryBody.appendChild(el('p', { className: 'text-sm text-gray-700 mb-1' }, `• ${l}`));
-    });
-  }
-
-  let editorCommentCounts = {};
-
-  async function renderAllBlockers() {
-    if (projectId) {
-      const { counts } = await getCommentCountsForProject(projectId);
-      editorCommentCounts = counts;
-    }
-    blockersContainer.innerHTML = '';
-    blockers.forEach((blocker, i) => {
-      const prefix = `_${i}`;
-      const blockerCounts = {};
-      for (const [key, val] of Object.entries(editorCommentCounts)) {
-        if (key.startsWith(prefix)) {
-          blockerCounts[key.slice(prefix.length)] = val;
+      itemWrapper.addEventListener('focusout', (e) => {
+        if (!itemWrapper.contains(e.relatedTarget)) {
+          row.classList.remove('bg-blue-100/70');
+          row.classList.add('bg-gray-100/70');
         }
-      }
-      blockersContainer.appendChild(
-        renderBlockerRow(blocker, i, {
-          onUpdate: () => updateSummary(),
-          onRemove: () => {
-            blockers.splice(i, 1);
-            renderAllBlockers();
-            updateSummary();
-          },
-          commentCounts: blockerCounts,
-          onComment: (suffix, anchorEl) => {
-            if (!projectId) {
-              alert('먼저 임시 저장 후 댓글을 달 수 있습니다.');
-              return;
-            }
-            showCommentPopup(`${projectId}_${i}${suffix}`, anchorEl);
-          },
-        })
+      });
+    }
+
+    function makeRow(item, textKey, placeholder, onToggle, onInput, onRemove, isExpanded) {
+      const input = el('input', {
+        type: 'text',
+        value: item[textKey] || '',
+        className: 'flex-1 bg-transparent border-none focus:outline-none text-sm text-gray-900 placeholder-gray-400',
+        placeholder,
+        oninput: (e) => { item[textKey] = e.target.value; if (onInput) onInput(); },
+      });
+      const row = el('div', {
+        className: 'flex items-center gap-2 p-3 rounded-lg transition-all bg-gray-100/70',
+        onclick: (e) => { e._handled = true; },
+      },
+        el('button', {
+          className: 'shrink-0 p-0.5 rounded hover:bg-gray-100 transition-colors',
+          onclick: (e) => { e._handled = true; onToggle(); },
+        }, toggleIcon(isExpanded)),
+        input,
       );
+      input.addEventListener('focus', () => {
+        row.classList.remove('bg-gray-100/70');
+        row.classList.add('bg-blue-100/70');
+      });
+      input.addEventListener('blur', () => {
+        row.classList.remove('bg-blue-100/70');
+        row.classList.add('bg-gray-100/70');
+      });
+      return row;
+    }
+
+    function renderLessonInline(hyp) {
+      const wrapper = el('div', {
+        className: 'ml-6 border-l-2 border-gray-200 pl-4 mt-2',
+        onclick: (e) => { e._handled = true; },
+      });
+      const chips = el('div', { className: 'flex gap-2 mb-3' });
+      for (const [value, label] of Object.entries(STATUSES)) {
+        const isActive = value === (hyp.status || 'pending');
+        const colorClass = isActive ? STATUS_COLORS[value] : 'bg-gray-50 text-gray-400 border border-gray-200';
+        chips.appendChild(el('button', {
+          className: `text-sm px-4 py-1.5 rounded-full transition-colors ${colorClass}`,
+          onclick: () => { hyp.status = value; renderTree(); },
+        }, label));
+      }
+      wrapper.appendChild(el('div', {},
+        el('span', { className: 'text-xs font-medium text-gray-500 uppercase tracking-wide block mb-2' }, '검증'),
+        chips,
+      ));
+      if (hyp.status === 'success' || hyp.status === 'fail') {
+        wrapper.appendChild(el('div', {},
+          el('span', { className: 'text-xs font-medium text-gray-500 uppercase tracking-wide block mb-2' }, '레슨런'),
+          el('textarea', {
+            className: 'w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:bg-gray-50 resize-none',
+            rows: '4',
+            placeholder: '새롭게 알게 된 사실을 기록하세요.',
+            value: hyp.lessonLearned || '',
+            oninput: (e) => { hyp.lessonLearned = e.target.value; },
+          }),
+        ));
+      }
+      return wrapper;
+    }
+
+    function renderHypList(hypotheses) {
+      const wrapper = el('div', { className: 'ml-6 border-l-2 border-gray-200 pl-4 mt-2 space-y-2' });
+      wrapper.appendChild(el('div', { className: 'flex items-center justify-between mb-2' },
+        el('span', { className: 'text-xs font-medium text-gray-500 uppercase tracking-wide' }, '가설'),
+        el('button', {
+          className: 'text-xs text-gray-400 hover:text-gray-600',
+          onclick: (e) => {
+            e._handled = true;
+            hypotheses.push({ text: '', status: 'pending', selected: false, lessonLearned: '' });
+            renderTree();
+          },
+        }, '+ 추가'),
+      ));
+      hypotheses.forEach((hyp, hi) => {
+        const row = makeRow(hyp, 'text', '해결책을 입력하고 그 결과 어떻게 될지 입력하세요', () => {
+          if (hyp.selected) {
+            hyp.selected = false;
+          } else {
+            hypotheses.forEach((h) => h.selected = false);
+            hyp.selected = true;
+          }
+          renderTree();
+        }, null, null, hyp.selected);
+        row.appendChild(el('button', {
+          className: 'text-red-300 hover:text-red-500 text-sm shrink-0',
+          onclick: () => {
+            hypotheses.splice(hi, 1);
+            if (hypotheses.length === 0) hypotheses.push({ text: '', status: 'pending', selected: false, lessonLearned: '' });
+            renderTree();
+          },
+        }, '\u00D7'));
+        const hypItem = el('div', {});
+        hypItem.appendChild(row);
+        if (hyp.selected) {
+          const lessonEl = renderLessonInline(hyp);
+          lessonEl.classList.add('mb-4');
+          hypItem.appendChild(lessonEl);
+        }
+        addParentHighlight(hypItem, row);
+        wrapper.appendChild(hypItem);
+      });
+      return wrapper;
+    }
+
+    function renderReasonList(reasons) {
+      const wrapper = el('div', { className: 'ml-6 border-l-2 border-gray-200 pl-4 mt-2 space-y-2' });
+      wrapper.appendChild(el('div', { className: 'flex items-center justify-between mb-2' },
+        el('span', { className: 'text-xs font-medium text-gray-500 uppercase tracking-wide' }, '문제'),
+        el('button', {
+          className: 'text-xs text-gray-400 hover:text-gray-600',
+          onclick: (e) => {
+            e._handled = true;
+            reasons.push({ text: '', category: 'cognitive', selected: false, hypotheses: [] });
+            renderTree();
+          },
+        }, '+ 추가'),
+      ));
+      reasons.forEach((reason, ri) => {
+        const row = makeRow(reason, 'text', '블록커가 발생하는 이유를 구체적으로 입력하세요', () => {
+          if (reason.selected) {
+            reason.selected = false;
+          } else {
+            reasons.forEach((r) => r.selected = false);
+            reason.selected = true;
+            if (!reason.hypotheses || reason.hypotheses.length === 0) {
+              reason.hypotheses = [{ text: '', status: 'pending', selected: false, lessonLearned: '' }];
+            }
+          }
+          renderTree();
+        }, null, null, reason.selected);
+        row.appendChild(el('button', {
+          className: 'text-red-300 hover:text-red-500 text-sm shrink-0',
+          onclick: () => {
+            reasons.splice(ri, 1);
+            if (reasons.length === 0) reasons.push({ text: '', category: 'cognitive', selected: false, hypotheses: [] });
+            renderTree();
+          },
+        }, '\u00D7'));
+        const reasonItem = el('div', {});
+        reasonItem.appendChild(row);
+        if (reason.selected) {
+          const hypEl = renderHypList(reason.hypotheses);
+          hypEl.classList.add('mb-4');
+          reasonItem.appendChild(hypEl);
+        }
+        addParentHighlight(reasonItem, row);
+        wrapper.appendChild(reasonItem);
+      });
+      return wrapper;
+    }
+
+    // === Blockers ===
+    const blockerSection = el('div', { className: 'space-y-2' });
+    blockerSection.appendChild(el('div', { className: 'flex items-center justify-between mb-2' },
+      el('span', { className: 'text-xs font-medium text-gray-500 uppercase tracking-wide' }, '블록커'),
+      el('button', {
+        className: 'text-xs text-gray-400 hover:text-gray-600',
+        onclick: (e) => {
+          e._handled = true;
+          blockers.push({ blocker: '', selected: false, reasons: [] });
+          renderTree();
+        },
+      }, '+ 추가'),
+    ));
+    blockers.forEach((blocker, i) => {
+      const row = makeRow(blocker, 'blocker', '목표를 가로막는 것을 입력하세요', () => {
+        if (blocker.selected) {
+          blocker.selected = false;
+        } else {
+          blockers.forEach((b) => b.selected = false);
+          blocker.selected = true;
+          if (!blocker.reasons || blocker.reasons.length === 0) {
+            blocker.reasons = [{ text: '', category: 'cognitive', selected: false, hypotheses: [] }];
+          }
+        }
+        renderTree();
+      }, null, null, blocker.selected);
+      row.appendChild(el('button', {
+        className: 'text-red-300 hover:text-red-500 text-sm shrink-0',
+        onclick: () => {
+          blockers.splice(i, 1);
+          if (blockers.length === 0) blockers.push({ blocker: '', selected: false, reasons: [] });
+          renderTree();
+        },
+      }, '\u00D7'));
+      const blockerItem = el('div', {});
+      blockerItem.appendChild(row);
+      if (blocker.selected) {
+        const reasonsEl = renderReasonList(blocker.reasons);
+        reasonsEl.classList.add('mb-4');
+        blockerItem.appendChild(reasonsEl);
+      }
+      addParentHighlight(blockerItem, row);
+      blockerSection.appendChild(blockerItem);
     });
+    treeContainer.appendChild(blockerSection);
   }
 
-  renderAllBlockers();
-  updateSummary();
-
-  const statusMsg = el('span', { className: 'text-sm text-gray-400' });
+  renderTree();
 
   const actions = el('div', { className: 'flex items-center gap-3' },
     el('button', {
       className: 'text-sm text-gray-500 hover:text-gray-700',
       onclick: () => navigate('/dashboard'),
-    }, '← 돌아가기'),
+    }, '\u2190 돌아가기'),
     el('div', { className: 'flex-1' }),
     statusMsg,
     el('button', {
@@ -177,19 +348,10 @@ export async function renderEditor(container, params) {
     }, '제출'),
   );
 
-  const addBlockerBtn = el('button', {
-    className: 'w-full border-2 border-dashed border-gray-300 rounded-xl py-3 text-sm text-gray-400 hover:border-gray-400 hover:text-gray-500 transition-colors mb-6',
-    onclick: () => {
-      blockers.push({ blocker: '', reasons: [{ text: '', category: 'cognitive', hypotheses: [{ text: '', status: 'pending', lessonLearned: '' }] }] });
-      renderAllBlockers();
-    },
-  }, '+ 블록커 추가');
-
   content.appendChild(actions);
   content.appendChild(el('div', { className: 'mt-6' },
+    el('span', { className: 'text-xs font-medium text-gray-500 uppercase tracking-wide block mb-2' }, '목표'),
     goalInput,
-    summaryContainer,
-    blockersContainer,
-    addBlockerBtn,
+    treeContainer,
   ));
 }
