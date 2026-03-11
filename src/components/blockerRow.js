@@ -1,7 +1,7 @@
 import { el } from '../utils/dom.js';
 import { STATUSES, STATUS_COLORS } from '../utils/constants.js';
 
-export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment, readonly = false, commentCounts = {}, isSelected }) {
+export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment, readonly = false, commentCounts = {}, commentLatestAt = {}, lastSeenAt = 0, isSelected }) {
   function commentIcon() {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', '16');
@@ -19,19 +19,30 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
   }
 
   function commentBtn(targetSuffix) {
-    const count = commentCounts[targetSuffix] || 0;
-    const hasComments = count > 0;
-    return el('button', {
-      className: `inline-flex items-center gap-0.5 rounded-md p-1 shrink-0 transition-colors ${hasComments ? 'text-gray-600 hover:bg-gray-100' : 'text-gray-300 hover:text-gray-600 hover:bg-gray-100'}`,
+    let count = commentCounts[targetSuffix] || 0;
+    const latest = commentLatestAt[targetSuffix] || 0;
+    const isNew = latest > lastSeenAt && count > 0;
+    const countSpan = el('span', { className: 'text-xs' }, count > 0 ? String(count) : '');
+    const dot = el('span', { className: `w-2 h-2 bg-red-500 rounded-full ${isNew ? '' : 'hidden'}` });
+    const btn = el('button', {
+      className: `relative inline-flex items-center gap-0.5 rounded-md p-1 shrink-0 transition-colors ${count > 0 ? 'text-gray-600 hover:bg-gray-100' : 'text-gray-300 hover:text-gray-600 hover:bg-gray-100'}`,
       title: '댓글',
       onclick: (e) => {
         e.stopPropagation();
-        if (onComment) onComment(targetSuffix, e.currentTarget);
+        dot.classList.add('hidden');
+        if (onComment) onComment(targetSuffix, e.currentTarget, () => {
+          count++;
+          countSpan.textContent = String(count);
+          btn.classList.remove('text-gray-300');
+          btn.classList.add('text-gray-600');
+        });
       },
     },
       commentIcon(),
-      ...(hasComments ? [el('span', { className: 'text-xs' }, String(count))] : []),
+      countSpan,
+      dot,
     );
+    return btn;
   }
 
   // Reasons list (each reason contains its own hypotheses)
@@ -107,7 +118,10 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
             ...(showLesson
               ? [readonly
                   ? (hyp.lessonLearned
-                      ? el('p', { className: 'text-gray-700 mt-2' }, `레슨런: ${hyp.lessonLearned}`)
+                      ? el('div', { className: 'flex items-center gap-2 mt-2' },
+                          el('p', { className: 'flex-1 text-gray-700' }, `레슨런: ${hyp.lessonLearned}`),
+                          commentBtn(`_reason_${ri}_hyp_${hi}_lesson`),
+                        )
                       : el('span', {}))
                   : el('textarea', {
                       className: 'w-full border border-gray-200 rounded-lg px-3 py-2 mt-2 focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none',
@@ -196,7 +210,10 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
 
     // Blocker text
     readonly
-      ? el('p', { className: 'text-gray-900 mb-4' }, blocker.blocker || '(미작성)')
+      ? el('div', { className: 'flex items-center gap-2 mb-4' },
+          el('p', { className: 'flex-1 text-gray-900' }, blocker.blocker || '(미작성)'),
+          commentBtn('_blocker'),
+        )
       : el('input', {
           type: 'text',
           value: blocker.blocker || '',

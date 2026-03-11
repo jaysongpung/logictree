@@ -107,7 +107,8 @@ export async function renderViewer(container, params) {
   }
 
   // Blockers
-  const { counts: allCommentCounts } = await getCommentCountsForProject(project.id);
+  const lastSeenAt = parseInt(localStorage.getItem(`lastSeen_${project.id}`) || '0', 10);
+  const { counts: allCommentCounts, latestAt: allLatestAt } = await getCommentCountsForProject(project.id);
   const blockersContainer = el('div', { className: 'space-y-4' });
   (project.content || []).forEach((blocker, i) => {
     // Skip completely empty blockers
@@ -118,9 +119,15 @@ export async function renderViewer(container, params) {
     // Filter comment counts for this blocker
     const prefix = `_${i}`;
     const blockerCounts = {};
+    const blockerLatestAt = {};
     for (const [key, val] of Object.entries(allCommentCounts)) {
       if (key.startsWith(prefix)) {
         blockerCounts[key.slice(prefix.length)] = val;
+      }
+    }
+    for (const [key, val] of Object.entries(allLatestAt)) {
+      if (key.startsWith(prefix)) {
+        blockerLatestAt[key.slice(prefix.length)] = val;
       }
     }
 
@@ -130,9 +137,11 @@ export async function renderViewer(container, params) {
         onUpdate: () => {},
         onRemove: () => {},
         commentCounts: blockerCounts,
+        commentLatestAt: blockerLatestAt,
+        lastSeenAt,
         isSelected: blocker.selected,
-        onComment: (suffix, anchorEl) => {
-          showCommentPopup(`${project.id}_${i}${suffix}`, anchorEl);
+        onComment: (suffix, anchorEl, onPost) => {
+          showCommentPopup(`${project.id}_${i}${suffix}`, anchorEl, onPost);
         },
       })
     );
@@ -143,4 +152,6 @@ export async function renderViewer(container, params) {
   }
 
   content.appendChild(blockersContainer);
+
+  localStorage.setItem(`lastSeen_${project.id}`, String(Date.now()));
 }

@@ -113,12 +113,15 @@ export async function getCommentCountsForProject(projectId) {
   );
   const snapshot = await getDocs(q);
   const counts = {};
+  const latestAt = {};
   let total = 0;
   snapshot.docs.forEach((d) => {
-    const targetId = d.data().targetId;
-    const suffix = targetId.slice(projectId.length);
+    const data = d.data();
+    const suffix = data.targetId.slice(projectId.length);
     counts[suffix] = (counts[suffix] || 0) + 1;
+    const ts = data.createdAt?.toMillis?.() || 0;
+    if (!latestAt[suffix] || ts > latestAt[suffix]) latestAt[suffix] = ts;
     total++;
   });
-  return { counts, total };
+  return { counts, latestAt, total };
 }

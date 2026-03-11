@@ -2,7 +2,7 @@ import { el, formatDate } from '../utils/dom.js';
 import { getState } from '../state.js';
 import { addComment, getComments } from '../firebase.js';
 
-export function showCommentPopup(targetId, anchorEl) {
+export function showCommentPopup(targetId, anchorEl, onPost) {
   // Remove existing popup
   document.querySelector('.comment-popup')?.remove();
 
@@ -30,6 +30,7 @@ export function showCommentPopup(targetId, anchorEl) {
       input.value = '';
       sendBtn.disabled = false;
       sendBtn.textContent = '전송';
+      if (onPost) onPost();
       await loadComments();
     },
   }, '전송');
