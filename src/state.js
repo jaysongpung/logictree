@@ -1,5 +1,5 @@
 let state = {
-  nickname: localStorage.getItem('lt_nickname') || null,
+  nickname: (localStorage.getItem('lt_nickname') || '').toLowerCase() || null,
   isTeacher: localStorage.getItem('lt_isTeacher') === 'true',
 };
 
@@ -12,7 +12,7 @@ export function getState() {
 export function setState(partial) {
   state = { ...state, ...partial };
   if ('nickname' in partial) {
-    if (partial.nickname) localStorage.setItem('lt_nickname', partial.nickname);
+    if (partial.nickname) localStorage.setItem('lt_nickname', partial.nickname.toLowerCase());
     else localStorage.removeItem('lt_nickname');
   }
   if ('isTeacher' in partial) {

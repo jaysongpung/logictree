@@ -59,7 +59,7 @@ export async function renderViewer(container, params) {
   const badgeContainer = el('div', {});
   badgeContainer.appendChild(makeBadgeBtn());
 
-  const isOwner = state.nickname && state.nickname === project.nickname;
+  const isOwner = state.nickname && state.nickname.toLowerCase() === (project.nickname || '').toLowerCase();
 
   content.appendChild(
     el('div', { className: 'flex items-center gap-3 mb-2' },

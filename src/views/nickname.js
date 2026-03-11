@@ -10,7 +10,7 @@ export function renderNickname(container) {
   });
 
   const handleEnter = () => {
-    const nickname = input.value.trim();
+    const nickname = input.value.trim().toLowerCase();
     if (!nickname) return;
     setState({ nickname });
     navigate('/dashboard');

@@ -74,7 +74,7 @@ export async function renderDashboard(container) {
   let timeout;
   filterInput.addEventListener('input', () => {
     clearTimeout(timeout);
-    timeout = setTimeout(() => load(filterInput.value.trim()), 300);
+    timeout = setTimeout(() => load(filterInput.value.trim().toLowerCase()), 300);
   });
 
   load();
