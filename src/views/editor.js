@@ -49,6 +49,7 @@ export async function renderEditor(container, params) {
 
   let projectId = params?.id || null;
   let goalValue = '';
+  let currentStatus = 'draft';
   let blockers = [
     { blocker: '', selected: false, reasons: [] },
   ];
@@ -60,6 +61,7 @@ export async function renderEditor(container, params) {
     if (project) {
       goalValue = project.goal || '';
       blockers = project.content || blockers;
+      currentStatus = project.status || 'draft';
     }
     content.innerHTML = '';
   }
@@ -308,7 +310,7 @@ export async function renderEditor(container, params) {
             nickname: state.nickname,
             goal: goalInput.value,
             content: blockers,
-            status: 'draft',
+            status: currentStatus,
           };
           if (projectId) data.id = projectId;
           projectId = await saveProject(data);
@@ -334,7 +336,7 @@ export async function renderEditor(container, params) {
             nickname: state.nickname,
             goal: goalInput.value,
             content: blockers,
-            status: 'draft',
+            status: currentStatus,
           };
           if (projectId) data.id = projectId;
           projectId = await saveProject(data);

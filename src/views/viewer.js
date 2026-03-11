@@ -59,6 +59,8 @@ export async function renderViewer(container, params) {
   const badgeContainer = el('div', {});
   badgeContainer.appendChild(makeBadgeBtn());
 
+  const isOwner = state.nickname && state.nickname === project.nickname;
+
   content.appendChild(
     el('div', { className: 'flex items-center gap-3 mb-2' },
       el('button', {
@@ -66,6 +68,10 @@ export async function renderViewer(container, params) {
         onclick: () => navigate('/dashboard'),
       }, '← 돌아가기'),
       el('div', { className: 'flex-1' }),
+      ...(isOwner ? [el('button', {
+        className: 'text-sm text-gray-500 hover:text-gray-700 border border-gray-300 px-3 py-1 rounded-lg',
+        onclick: () => navigate(`/edit/${project.id}`),
+      }, '수정하기')] : []),
       badgeContainer,
     )
   );

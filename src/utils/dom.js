@@ -5,6 +5,8 @@ export function el(tag, attrs = {}, ...children) {
       element.className = value;
     } else if (key === 'onclick' || key === 'oninput' || key === 'onchange') {
       element.addEventListener(key.slice(2), value);
+    } else if (key === 'value') {
+      element.value = value;
     } else if (key === 'dataset') {
       Object.assign(element.dataset, value);
     } else {
