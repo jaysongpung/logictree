@@ -160,6 +160,11 @@ export async function saveHelpConfig(config) {
   }
 }
 
+export async function getAllProjects() {
+  const snapshot = await getDocs(collection(db, 'projects'));
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+}
+
 export async function getCommentCountsForProject(projectId) {
   const q = query(
     collection(db, 'comments'),
