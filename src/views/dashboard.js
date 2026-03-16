@@ -167,7 +167,7 @@ export async function renderDashboard(container) {
   // Header actions
   const filterInput = el('input', {
     type: 'text',
-    value: state.dashboardFilter,
+    value: sessionStorage.getItem('dashboard_filter') || '',
     className: 'border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 w-48',
     placeholder: '닉네임으로 검색...',
   });
@@ -197,15 +197,12 @@ export async function renderDashboard(container) {
         onclick: async () => {
           // 내 프로젝트의 댓글 로드
           const projects = await getProjects(state.nickname);
-          console.log('내 프로젝트들:', projects);
           const commentResults = await Promise.all(
             projects.map((p) => getCommentCountsForProject(p.id))
           );
-          console.log('댓글 결과:', commentResults);
           const projectsWithComments = projects
             .map((p, idx) => ({ project: p, commentCount: commentResults[idx].total }))
             .filter(({ commentCount }) => commentCount > 0);
-          console.log('댓글 달린 프로젝트들:', projectsWithComments);
           showCommentsModal(projectsWithComments);
         },
       }, '댓글'),
@@ -271,12 +268,10 @@ export async function renderDashboard(container) {
   let timeout;
   filterInput.addEventListener('input', () => {
     clearTimeout(timeout);
-    const value = filterInput.value.trim().toLowerCase();
-    timeout = setTimeout(() => {
-      setState({ dashboardFilter: value });
-      load(value);
-    }, 300);
+    const val = filterInput.value.trim().toLowerCase();
+    sessionStorage.setItem('dashboard_filter', filterInput.value.trim());
+    timeout = setTimeout(() => load(val), 300);
   });
 
-  load();
+  load(sessionStorage.getItem('dashboard_filter')?.toLowerCase() || undefined);
 }
