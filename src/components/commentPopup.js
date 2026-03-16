@@ -1,6 +1,6 @@
 import { el, formatDate } from '../utils/dom.js';
 import { getState } from '../state.js';
-import { addComment, getComments } from '../firebase.js';
+import { addComment, getComments, deleteComment } from '../firebase.js';
 
 export function showCommentPopup(targetId, anchorEl, onPost) {
   // Remove existing popup
@@ -63,12 +63,24 @@ export function showCommentPopup(targetId, anchorEl, onPost) {
     if (comments.length === 0) {
       listContainer.appendChild(el('p', { className: 'text-sm text-gray-400 text-center py-2' }, '아직 댓글이 없습니다.'));
     } else {
+      const nickname = getState().nickname;
       comments.forEach((c) => {
+        const isOwn = nickname && nickname.toLowerCase() === (c.author || '').toLowerCase();
         listContainer.appendChild(
           el('div', { className: 'bg-gray-50 rounded-lg px-3 py-2' },
             el('div', { className: 'flex items-center justify-between mb-1' },
               el('span', { className: 'text-xs font-medium text-gray-700' }, c.author),
-              el('span', { className: 'text-xs text-gray-400' }, formatDate(c.createdAt)),
+              el('div', { className: 'flex items-center gap-2' },
+                el('span', { className: 'text-xs text-gray-400' }, formatDate(c.createdAt)),
+                ...(isOwn ? [el('button', {
+                  className: 'text-xs text-red-300 hover:text-red-500',
+                  onclick: async () => {
+                    if (!confirm('댓글을 삭제할까요?')) return;
+                    await deleteComment(c.id);
+                    await loadComments();
+                  },
+                }, '삭제')] : []),
+              ),
             ),
             el('p', { className: 'text-sm text-gray-600' }, c.text),
           )

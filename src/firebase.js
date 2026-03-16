@@ -11,7 +11,6 @@ import {
   setDoc,
   query,
   where,
-  orderBy,
   serverTimestamp,
 } from 'firebase/firestore';
 
@@ -109,6 +108,10 @@ export async function addComment(targetId, author, text) {
     text,
     createdAt: serverTimestamp(),
   });
+}
+
+export async function deleteComment(commentId) {
+  await deleteDoc(doc(db, 'comments', commentId));
 }
 
 export async function getComments(targetId) {
