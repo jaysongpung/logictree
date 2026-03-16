@@ -1,3 +1,7 @@
+export function genId() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
 export function el(tag, attrs = {}, ...children) {
   const element = document.createElement(tag);
   for (const [key, value] of Object.entries(attrs)) {

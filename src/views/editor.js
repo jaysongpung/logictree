@@ -1,4 +1,4 @@
-import { el, clearAndAppend } from '../utils/dom.js';
+import { el, clearAndAppend, genId } from '../utils/dom.js';
 import { getState } from '../state.js';
 import { navigate } from '../router.js';
 import { getProject, saveProject, submitProject, getHelpConfig, getDefaultHelp } from '../firebase.js';
@@ -52,9 +52,22 @@ export async function renderEditor(container, params) {
   let goalValue = '';
   let currentStatus = 'draft';
   let writingStatus = 'writing';
-  let blockers = [
-    { blocker: '', selected: false, reasons: [] },
-  ];
+  function ensureIds(blockerList) {
+    blockerList.forEach((b) => {
+      if (!b.id) b.id = genId();
+      (b.reasons || []).forEach((r) => {
+        if (!r.id) r.id = genId();
+        (r.hypotheses || []).forEach((h) => {
+          if (!h.id) h.id = genId();
+        });
+      });
+    });
+    return blockerList;
+  }
+
+  let blockers = ensureIds([
+    { id: genId(), blocker: '', selected: false, reasons: [] },
+  ]);
   let helpCfg = getDefaultHelp();
 
   content.appendChild(el('p', { className: 'text-sm text-gray-400 text-center py-8' }, '불러오는 중...'));
@@ -65,7 +78,7 @@ export async function renderEditor(container, params) {
   helpCfg = loadedHelp;
   if (loadedProject) {
     goalValue = loadedProject.goal || '';
-    blockers = loadedProject.content || blockers;
+    blockers = ensureIds(loadedProject.content || blockers);
     currentStatus = loadedProject.status || 'draft';
     writingStatus = loadedProject.writingStatus || 'writing';
   }
@@ -244,7 +257,7 @@ export async function renderEditor(container, params) {
     function renderHypList(hypotheses) {
       const wrapper = el('div', { className: 'ml-6 border-l-2 border-gray-200 pl-4 mt-2 space-y-2' });
       wrapper.appendChild(sectionHeader('가설', 'hypothesis', () => {
-        hypotheses.push({ text: '', status: 'pending', selected: false, lessonLearned: '' });
+        hypotheses.push({ id: genId(), text: '', status: 'pending', selected: false, lessonLearned: '' });
         renderTree();
       }));
       hypotheses.forEach((hyp, hi) => {
@@ -261,7 +274,7 @@ export async function renderEditor(container, params) {
           className: 'text-red-300 hover:text-red-500 text-sm shrink-0',
           onclick: () => {
             hypotheses.splice(hi, 1);
-            if (hypotheses.length === 0) hypotheses.push({ text: '', status: 'pending', selected: false, lessonLearned: '' });
+            if (hypotheses.length === 0) hypotheses.push({ id: genId(), text: '', status: 'pending', selected: false, lessonLearned: '' });
             renderTree();
           },
         }, '\u00D7'));
@@ -282,7 +295,7 @@ export async function renderEditor(container, params) {
     function renderReasonList(reasons) {
       const wrapper = el('div', { className: 'ml-6 border-l-2 border-gray-200 pl-4 mt-2 space-y-2' });
       wrapper.appendChild(sectionHeader('문제', 'reason', () => {
-        reasons.push({ text: '', category: 'cognitive', selected: false, hypotheses: [] });
+        reasons.push({ id: genId(), text: '', category: 'cognitive', selected: false, hypotheses: [] });
         renderTree();
       }));
       reasons.forEach((reason, ri) => {
@@ -293,7 +306,7 @@ export async function renderEditor(container, params) {
             reasons.forEach((r) => r.selected = false);
             reason.selected = true;
             if (!reason.hypotheses || reason.hypotheses.length === 0) {
-              reason.hypotheses = [{ text: '', status: 'pending', selected: false, lessonLearned: '' }];
+              reason.hypotheses = [{ id: genId(), text: '', status: 'pending', selected: false, lessonLearned: '' }];
             }
           }
           renderTree();
@@ -302,7 +315,7 @@ export async function renderEditor(container, params) {
           className: 'text-red-300 hover:text-red-500 text-sm shrink-0',
           onclick: () => {
             reasons.splice(ri, 1);
-            if (reasons.length === 0) reasons.push({ text: '', category: 'cognitive', selected: false, hypotheses: [] });
+            if (reasons.length === 0) reasons.push({ id: genId(), text: '', category: 'cognitive', selected: false, hypotheses: [] });
             renderTree();
           },
         }, '\u00D7'));
@@ -323,7 +336,7 @@ export async function renderEditor(container, params) {
     // === Blockers ===
     const blockerSection = el('div', { className: 'space-y-2' });
     blockerSection.appendChild(sectionHeader('블록커', 'blocker', () => {
-      blockers.push({ blocker: '', selected: false, reasons: [] });
+      blockers.push({ id: genId(), blocker: '', selected: false, reasons: [] });
       renderTree();
     }));
     blockers.forEach((blocker, i) => {
@@ -334,7 +347,7 @@ export async function renderEditor(container, params) {
           blockers.forEach((b) => b.selected = false);
           blocker.selected = true;
           if (!blocker.reasons || blocker.reasons.length === 0) {
-            blocker.reasons = [{ text: '', category: 'cognitive', selected: false, hypotheses: [] }];
+            blocker.reasons = [{ id: genId(), text: '', category: 'cognitive', selected: false, hypotheses: [] }];
           }
         }
         renderTree();
@@ -343,7 +356,7 @@ export async function renderEditor(container, params) {
         className: 'text-red-300 hover:text-red-500 text-sm shrink-0',
         onclick: () => {
           blockers.splice(i, 1);
-          if (blockers.length === 0) blockers.push({ blocker: '', selected: false, reasons: [] });
+          if (blockers.length === 0) blockers.push({ id: genId(), blocker: '', selected: false, reasons: [] });
           renderTree();
         },
       }, '\u00D7'));

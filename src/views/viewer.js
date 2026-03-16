@@ -152,18 +152,32 @@ export async function renderViewer(container, params) {
       (blocker.reasons || []).some((r) => r.text || (r.hypotheses || []).some((h) => h.text || h.lessonLearned));
     if (!hasContent) return;
 
-    // Filter comment counts for this blocker
-    const prefix = `_${i}`;
+    // Collect IDs for this blocker and its children
+    const itemIds = new Set();
+    if (blocker.id) itemIds.add(`_${blocker.id}`);
+    itemIds.add(`_${i}`); // legacy index-based
+    (blocker.reasons || []).forEach((r, ri) => {
+      if (r.id) itemIds.add(`_${r.id}`);
+      itemIds.add(`_reason_${ri}`); // legacy
+      (r.hypotheses || []).forEach((h, hi) => {
+        if (h.id) itemIds.add(`_${h.id}`);
+        itemIds.add(`_reason_${ri}_hyp_${hi}`); // legacy
+        if (h.id) itemIds.add(`_${h.id}_lesson`);
+        itemIds.add(`_reason_${ri}_hyp_${hi}_lesson`); // legacy
+      });
+    });
+
+    // Filter comment counts for this blocker's items
     const blockerCounts = {};
     const blockerLatestAt = {};
     for (const [key, val] of Object.entries(allCommentCounts)) {
-      if (key.startsWith(prefix)) {
-        blockerCounts[key.slice(prefix.length)] = val;
+      if (itemIds.has(key) || key.startsWith(`_${i}_`)) {
+        blockerCounts[key] = val;
       }
     }
     for (const [key, val] of Object.entries(allLatestAt)) {
-      if (key.startsWith(prefix)) {
-        blockerLatestAt[key.slice(prefix.length)] = val;
+      if (itemIds.has(key) || key.startsWith(`_${i}_`)) {
+        blockerLatestAt[key] = val;
       }
     }
 
@@ -177,7 +191,7 @@ export async function renderViewer(container, params) {
         lastSeenAt,
         isSelected: blocker.selected,
         onComment: (suffix, anchorEl, onPost) => {
-          showCommentPopup(`${project.id}_${i}${suffix}`, anchorEl, onPost);
+          showCommentPopup(`${project.id}${suffix}`, anchorEl, onPost);
         },
       })
     );

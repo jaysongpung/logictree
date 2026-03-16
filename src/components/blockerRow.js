@@ -98,7 +98,7 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
                       onUpdate();
                     },
                   }),
-              commentBtn(`_reason_${ri}_hyp_${hi}`),
+              commentBtn(hyp.id ? `_${hyp.id}` : `_reason_${ri}_hyp_${hi}`),
               ...(readonly ? [] : [
                 el('button', {
                   className: 'text-red-300 hover:text-red-500 text-sm',
@@ -117,7 +117,7 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
                   ? (hyp.lessonLearned
                       ? el('div', { className: 'flex items-center gap-2 mt-2' },
                           el('p', { className: 'flex-1 text-gray-700' }, `레슨런: ${hyp.lessonLearned}`),
-                          commentBtn(`_reason_${ri}_hyp_${hi}_lesson`),
+                          commentBtn(hyp.id ? `_${hyp.id}_lesson` : `_reason_${ri}_hyp_${hi}_lesson`),
                         )
                       : el('span', {}))
                   : el('textarea', {
@@ -166,7 +166,7 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
                   onUpdate();
                 },
               }),
-          commentBtn(`_reason_${ri}`),
+          commentBtn(reason.id ? `_${reason.id}` : `_reason_${ri}`),
           ...(readonly ? [] : [
             el('button', {
               className: 'text-red-300 hover:text-red-500 text-sm',
@@ -203,7 +203,7 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
     readonly
       ? el('div', { className: 'flex items-center gap-2 mb-4' },
           el('p', { className: 'flex-1 text-gray-900' }, blocker.blocker || '(미작성)'),
-          commentBtn('_blocker'),
+          commentBtn(blocker.id ? `_${blocker.id}` : '_blocker'),
         )
       : el('input', {
           type: 'text',
