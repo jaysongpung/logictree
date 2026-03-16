@@ -152,31 +152,37 @@ export async function renderViewer(container, params) {
       (blocker.reasons || []).some((r) => r.text || (r.hypotheses || []).some((h) => h.text || h.lessonLearned));
     if (!hasContent) return;
 
-    // Collect IDs for this blocker and its children
-    const itemIds = new Set();
-    if (blocker.id) itemIds.add(`_${blocker.id}`);
-    itemIds.add(`_${i}`); // legacy index-based
-    (blocker.reasons || []).forEach((r, ri) => {
-      if (r.id) itemIds.add(`_${r.id}`);
-      itemIds.add(`_reason_${ri}`); // legacy
-      (r.hypotheses || []).forEach((h, hi) => {
-        if (h.id) itemIds.add(`_${h.id}`);
-        itemIds.add(`_reason_${ri}_hyp_${hi}`); // legacy
-        if (h.id) itemIds.add(`_${h.id}_lesson`);
-        itemIds.add(`_reason_${ri}_hyp_${hi}_lesson`); // legacy
+    // Filter comment counts for this blocker's items
+    // Old keys use prefix `_${i}` (e.g. `_0_blocker`, `_0_reason_0`)
+    // New keys use item IDs (e.g. `_abc123`)
+    const legacyPrefix = `_${i}`;
+    const blockerCounts = {};
+    const blockerLatestAt = {};
+
+    // Collect new ID-based keys for this blocker
+    const newIds = new Set();
+    if (blocker.id) newIds.add(`_${blocker.id}`);
+    (blocker.reasons || []).forEach((r) => {
+      if (r.id) newIds.add(`_${r.id}`);
+      (r.hypotheses || []).forEach((h) => {
+        if (h.id) { newIds.add(`_${h.id}`); newIds.add(`_${h.id}_lesson`); }
       });
     });
 
-    // Filter comment counts for this blocker's items
-    const blockerCounts = {};
-    const blockerLatestAt = {};
     for (const [key, val] of Object.entries(allCommentCounts)) {
-      if (itemIds.has(key) || key.startsWith(`_${i}_`)) {
+      if (key.startsWith(legacyPrefix)) {
+        // Strip blocker index prefix so blockerRow can look up by `_blocker`, `_reason_0` etc.
+        blockerCounts[key.slice(legacyPrefix.length)] = val;
+      }
+      if (newIds.has(key)) {
         blockerCounts[key] = val;
       }
     }
     for (const [key, val] of Object.entries(allLatestAt)) {
-      if (itemIds.has(key) || key.startsWith(`_${i}_`)) {
+      if (key.startsWith(legacyPrefix)) {
+        blockerLatestAt[key.slice(legacyPrefix.length)] = val;
+      }
+      if (newIds.has(key)) {
         blockerLatestAt[key] = val;
       }
     }
@@ -190,8 +196,9 @@ export async function renderViewer(container, params) {
         commentLatestAt: blockerLatestAt,
         lastSeenAt,
         isSelected: blocker.selected,
-        onComment: (suffix, anchorEl, onPost) => {
-          showCommentPopup(`${project.id}${suffix}`, anchorEl, onPost);
+        onComment: (suffix, anchorEl, onPost, legacySuffixes = []) => {
+          const legacyIds = legacySuffixes.map((ls) => `${project.id}_${i}${ls}`);
+          showCommentPopup(`${project.id}_${i}${suffix}`, anchorEl, onPost, legacyIds);
         },
       })
     );

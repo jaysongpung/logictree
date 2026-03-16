@@ -2,7 +2,7 @@ import { el, formatDate } from '../utils/dom.js';
 import { getState } from '../state.js';
 import { addComment, getComments, deleteComment } from '../firebase.js';
 
-export function showCommentPopup(targetId, anchorEl, onPost) {
+export function showCommentPopup(targetId, anchorEl, onPost, legacyTargetIds = []) {
   // Remove existing popup
   document.querySelector('.comment-popup')?.remove();
 
@@ -58,7 +58,14 @@ export function showCommentPopup(targetId, anchorEl, onPost) {
   input.focus();
 
   async function loadComments() {
-    const comments = await getComments(targetId);
+    const allIds = [targetId, ...legacyTargetIds.filter((id) => id !== targetId)];
+    const results = await Promise.all(allIds.map((id) => getComments(id)));
+    const seen = new Set();
+    const comments = results.flat().filter((c) => {
+      if (seen.has(c.id)) return false;
+      seen.add(c.id);
+      return true;
+    }).sort((a, b) => (a.createdAt?.toMillis?.() || 0) - (b.createdAt?.toMillis?.() || 0));
     listContainer.innerHTML = '';
     if (comments.length === 0) {
       listContainer.appendChild(el('p', { className: 'text-sm text-gray-400 text-center py-2' }, '아직 댓글이 없습니다.'));
