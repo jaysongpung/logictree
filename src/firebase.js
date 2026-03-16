@@ -119,7 +119,7 @@ export async function getComments(targetId) {
     .sort((a, b) => {
       const ta = a.createdAt?.toMillis?.() || 0;
       const tb = b.createdAt?.toMillis?.() || 0;
-      return ta - tb;
+      return tb - ta;
     });
 }
 
@@ -184,4 +184,16 @@ export async function getCommentCountsForProject(projectId) {
     total++;
   });
   return { counts, latestAt, total };
+}
+
+export async function getCommentsForProject(projectId) {
+  const q = query(
+    collection(db, 'comments'),
+    where('targetId', '>=', projectId),
+    where('targetId', '<=', projectId + '\uf8ff')
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
 }
