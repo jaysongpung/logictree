@@ -1,7 +1,7 @@
-import { el } from '../utils/dom.js';
+import { el, thumbsUpIcon } from '../utils/dom.js';
 import { STATUSES, STATUS_COLORS } from '../utils/constants.js';
 
-export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment, readonly = false, commentCounts = {}, commentLatestAt = {}, lastSeenAt = 0, isSelected }) {
+export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment, onLike, readonly = false, commentCounts = {}, commentLatestAt = {}, lastSeenAt = 0, isSelected, likeSuffixes = new Set(), isTeacher = false }) {
   function commentIcon() {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('width', '16');
@@ -47,6 +47,29 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
       countSpan,
       dot,
     );
+    return btn;
+  }
+
+  function likeBtn(targetSuffix) {
+    let liked = likeSuffixes.has(targetSuffix);
+    const icon = thumbsUpIcon(14);
+    const btn = el('button', {
+      className: `inline-flex items-center rounded-md p-1 shrink-0 transition-colors ${liked ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'}`,
+      title: '미니따봉',
+      onclick: async (e) => {
+        e.stopPropagation();
+        if (onLike) {
+          liked = await onLike(targetSuffix);
+          btn.className = `inline-flex items-center rounded-md p-1 shrink-0 transition-colors ${liked ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'}`;
+        }
+      },
+    }, icon);
+    // Non-teacher can see liked state but not click
+    if (!isTeacher) {
+      if (!liked) return el('span', {});
+      btn.onclick = null;
+      btn.classList.add('cursor-default');
+    }
     return btn;
   }
 
@@ -104,6 +127,7 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
                     },
                   }),
               commentBtn(hyp.id ? `_${hyp.id}` : `_reason_${ri}_hyp_${hi}`, hyp.id ? [`_reason_${ri}_hyp_${hi}`] : []),
+              likeBtn(hyp.id ? `_${hyp.id}` : `_reason_${ri}_hyp_${hi}`),
               ...(readonly ? [] : [
                 el('button', {
                   className: 'text-red-300 hover:text-red-500 text-sm',
@@ -123,6 +147,7 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
                       ? el('div', { className: 'flex items-center gap-2 mt-2' },
                           el('p', { className: 'flex-1 text-gray-700' }, `레슨런: ${hyp.lessonLearned}`),
                           commentBtn(hyp.id ? `_${hyp.id}_lesson` : `_reason_${ri}_hyp_${hi}_lesson`, hyp.id ? [`_reason_${ri}_hyp_${hi}_lesson`] : []),
+                          likeBtn(hyp.id ? `_${hyp.id}_lesson` : `_reason_${ri}_hyp_${hi}_lesson`),
                         )
                       : el('span', {}))
                   : el('textarea', {
@@ -172,6 +197,7 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
                 },
               }),
           commentBtn(reason.id ? `_${reason.id}` : `_reason_${ri}`, reason.id ? [`_reason_${ri}`] : []),
+          likeBtn(reason.id ? `_${reason.id}` : `_reason_${ri}`),
           ...(readonly ? [] : [
             el('button', {
               className: 'text-red-300 hover:text-red-500 text-sm',
@@ -209,6 +235,7 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
       ? el('div', { className: 'flex items-center gap-2 mb-4' },
           el('p', { className: 'flex-1 text-gray-900' }, blocker.blocker || '(미작성)'),
           commentBtn(blocker.id ? `_${blocker.id}` : '_blocker', blocker.id ? ['_blocker'] : []),
+          likeBtn(blocker.id ? `_${blocker.id}` : '_blocker'),
         )
       : el('input', {
           type: 'text',

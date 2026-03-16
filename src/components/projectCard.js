@@ -20,7 +20,7 @@ function commentIconSmall() {
   return svg;
 }
 
-export function renderProjectCard(project, onRefresh, commentCount = 0, hasNewComments = false) {
+export function renderProjectCard(project, onRefresh, commentCount = 0, hasNewComments = false, likeCount = 0) {
   const state = getState();
 
   const badgeEl = project.badge
@@ -56,6 +56,12 @@ export function renderProjectCard(project, onRefresh, commentCount = 0, hasNewCo
     el('span', { className: 'text-sm text-gray-500 w-20 shrink-0 truncate' }, project.nickname),
     el('span', { className: 'text-gray-300 shrink-0' }, '|'),
     el('span', { className: 'text-sm text-gray-900 truncate flex-1' }, project.goal || '(목표 미작성)'),
+    ...(likeCount > 0
+      ? [el('span', { className: 'inline-flex items-center gap-0.5 text-xs text-amber-500 shrink-0' },
+          thumbsUpIcon(12),
+          String(likeCount),
+        )]
+      : []),
     ...(commentCount > 0
       ? [el('span', { className: 'relative inline-flex items-center gap-0.5 text-xs text-gray-400 shrink-0' },
           commentIconSmall(),

@@ -1,7 +1,7 @@
 import { el, clearAndAppend, formatDate, thumbsUpIcon } from '../utils/dom.js';
 import { getState } from '../state.js';
 import { navigate } from '../router.js';
-import { getProject, toggleBadge, getCommentCountsForProject } from '../firebase.js';
+import { getProject, toggleBadge, getCommentCountsForProject, getLikesForProject, toggleLike } from '../firebase.js';
 import { WRITING_STATUSES, WRITING_STATUS_COLORS } from '../utils/constants.js';
 import { renderNavbar } from '../components/navbar.js';
 import { renderBlockerRow } from '../components/blockerRow.js';
@@ -112,6 +112,20 @@ export async function renderViewer(container, params) {
     },
   }, goalCommentIcon(), goalCountSpan, goalDot);
 
+  // Goal like button
+  let goalLiked = false; // will be updated after likes are fetched
+  const goalLikeIcon = thumbsUpIcon(14);
+  const goalLikeBtn = el('button', {
+    className: 'inline-flex items-center rounded-md p-1 shrink-0 transition-colors text-gray-300 hover:text-amber-400',
+    title: '미니따봉',
+    onclick: async (e) => {
+      e.stopPropagation();
+      if (!state.isTeacher) return;
+      goalLiked = await toggleLike(project.id, '_goal');
+      goalLikeBtn.className = `inline-flex items-center rounded-md p-1 shrink-0 transition-colors ${goalLiked ? 'text-amber-500' : 'text-gray-300 hover:text-amber-400'}`;
+    },
+  }, goalLikeIcon);
+
   content.appendChild(
     el('div', { className: 'mb-6' },
       el('div', { className: 'flex items-center gap-2 mb-2' },
@@ -127,13 +141,17 @@ export async function renderViewer(container, params) {
       el('div', { className: 'flex items-center gap-2 mt-1' },
         el('h2', { className: 'text-xl font-bold text-gray-900' }, project.goal || '(목표 미작성)'),
         goalCommentBtn,
+        goalLikeBtn,
       ),
     )
   );
 
   // Blockers
   const lastSeenAt = parseInt(localStorage.getItem(`lastSeen_${project.id}`) || '0', 10);
-  const { counts: allCommentCounts, latestAt: allLatestAt } = await getCommentCountsForProject(project.id);
+  const [{ counts: allCommentCounts, latestAt: allLatestAt }, { suffixes: allLikeSuffixes }] = await Promise.all([
+    getCommentCountsForProject(project.id),
+    getLikesForProject(project.id),
+  ]);
 
   // Update goal comment button with counts
   const goalCount = allCommentCounts['_goal'] || 0;
@@ -144,6 +162,14 @@ export async function renderViewer(container, params) {
     goalCommentBtn.classList.remove('text-gray-300');
     goalCommentBtn.classList.add('text-gray-600');
     if (goalLatest > lastSeenAt) goalDot.classList.remove('hidden');
+  }
+
+  // Update goal like button
+  goalLiked = allLikeSuffixes.has('_goal');
+  if (goalLiked) {
+    goalLikeBtn.className = 'inline-flex items-center rounded-md p-1 shrink-0 transition-colors text-amber-500';
+  } else if (!state.isTeacher) {
+    goalLikeBtn.style.display = 'none';
   }
   const blockersContainer = el('div', { className: 'space-y-4' });
   (project.content || []).forEach((blocker, i) => {
@@ -196,9 +222,14 @@ export async function renderViewer(container, params) {
         commentLatestAt: blockerLatestAt,
         lastSeenAt,
         isSelected: blocker.selected,
+        likeSuffixes: allLikeSuffixes,
+        isTeacher: state.isTeacher,
         onComment: (suffix, anchorEl, onPost, legacySuffixes = []) => {
           const legacyIds = legacySuffixes.map((ls) => `${project.id}_${i}${ls}`);
           showCommentPopup(`${project.id}_${i}${suffix}`, anchorEl, onPost, legacyIds);
+        },
+        onLike: async (suffix) => {
+          return await toggleLike(project.id, suffix);
         },
       })
     );

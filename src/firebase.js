@@ -110,6 +110,43 @@ export async function addComment(targetId, author, text) {
   });
 }
 
+// Mini likes (teacher only, one per item)
+export async function toggleLike(projectId, targetSuffix) {
+  const docId = `${projectId}${targetSuffix}`;
+  const ref = doc(db, 'likes', docId);
+  const snap = await getDoc(ref);
+  if (snap.exists()) {
+    await deleteDoc(ref);
+    return false;
+  }
+  await setDoc(ref, { projectId, targetSuffix, createdAt: serverTimestamp() });
+  return true;
+}
+
+export async function getLikesForProject(projectId) {
+  const q = query(collection(db, 'likes'), where('projectId', '==', projectId));
+  const snapshot = await getDocs(q);
+  const suffixes = new Set();
+  snapshot.docs.forEach((d) => suffixes.add(d.data().targetSuffix));
+  return { suffixes, total: snapshot.size };
+}
+
+export async function getLikeCountsForProjects(projectIds) {
+  if (projectIds.length === 0) return {};
+  const counts = {};
+  // Firestore 'in' supports max 30
+  for (let i = 0; i < projectIds.length; i += 30) {
+    const batch = projectIds.slice(i, i + 30);
+    const q = query(collection(db, 'likes'), where('projectId', 'in', batch));
+    const snapshot = await getDocs(q);
+    snapshot.docs.forEach((d) => {
+      const pid = d.data().projectId;
+      counts[pid] = (counts[pid] || 0) + 1;
+    });
+  }
+  return counts;
+}
+
 export async function deleteComment(commentId) {
   await deleteDoc(doc(db, 'comments', commentId));
 }

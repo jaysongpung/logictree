@@ -1,7 +1,7 @@
 import { el, clearAndAppend, formatDate } from '../utils/dom.js';
 import { getState } from '../state.js';
 import { navigate } from '../router.js';
-import { getProjects, loadDrafts, getCommentCountsForProject } from '../firebase.js';
+import { getProjects, loadDrafts, getCommentCountsForProject, getLikeCountsForProjects } from '../firebase.js';
 import { renderNavbar } from '../components/navbar.js';
 import { renderProjectCard } from '../components/projectCard.js';
 
@@ -106,6 +106,7 @@ export async function renderDashboard(container) {
   const PAGE_SIZE = 20;
   let allProjects = [];
   let allCommentResults = [];
+  let allLikeCounts = {};
   let displayedCount = 0;
   let moreBtn = null;
 
@@ -117,7 +118,7 @@ export async function renderDashboard(container) {
       const lastSeen = parseInt(localStorage.getItem(`lastSeen_${p.id}`) || '0', 10);
       const maxLatest = Object.values(latestAt).reduce((a, b) => Math.max(a, b), 0);
       const hasNew = maxLatest > lastSeen;
-      grid.appendChild(renderProjectCard(p, () => load(filterInput.value.trim()), total, hasNew));
+      grid.appendChild(renderProjectCard(p, () => load(filterInput.value.trim()), total, hasNew, allLikeCounts[p.id] || 0));
     });
     displayedCount += next.length;
 
@@ -138,9 +139,13 @@ export async function renderDashboard(container) {
     grid.appendChild(el('p', { className: 'text-sm text-gray-400 text-center py-8' }, '불러오는 중...'));
     try {
       allProjects = await getProjects(filter || null);
-      allCommentResults = await Promise.all(
-        allProjects.map((p) => getCommentCountsForProject(p.id))
-      );
+      const projectIds = allProjects.map((p) => p.id);
+      const [commentResults, likeCounts] = await Promise.all([
+        Promise.all(allProjects.map((p) => getCommentCountsForProject(p.id))),
+        projectIds.length > 0 ? getLikeCountsForProjects(projectIds) : {},
+      ]);
+      allCommentResults = commentResults;
+      allLikeCounts = likeCounts;
       grid.innerHTML = '';
       if (allProjects.length === 0) {
         grid.appendChild(el('p', { className: 'text-sm text-gray-400 text-center py-12' }, '아직 제출된 프로젝트가 없습니다.'));
