@@ -119,7 +119,7 @@ export async function getComments(targetId) {
     .sort((a, b) => {
       const ta = a.createdAt?.toMillis?.() || 0;
       const tb = b.createdAt?.toMillis?.() || 0;
-      return ta - tb;
+      return tb - ta;
     });
 }
 
@@ -167,6 +167,7 @@ export async function getCommentCountsForProject(projectId) {
     where('targetId', '<=', projectId + '\uf8ff')
   );
   const snapshot = await getDocs(q);
+  console.log(`프로젝트 ${projectId}의 댓글 쿼리 결과:`, snapshot.docs.map(d => d.data()));
   const counts = {};
   const latestAt = {};
   let total = 0;
@@ -178,5 +179,17 @@ export async function getCommentCountsForProject(projectId) {
     if (!latestAt[suffix] || ts > latestAt[suffix]) latestAt[suffix] = ts;
     total++;
   });
+  console.log(`프로젝트 ${projectId}의 댓글 수:`, total);
   return { counts, latestAt, total };
+}
+
+export async function getCommentsForProject(projectId) {
+  const q = query(
+    collection(db, 'comments'),
+    where('targetId', '>=', projectId),
+    where('targetId', '<=', projectId + '\uf8ff'),
+    orderBy('createdAt', 'desc')
+  );
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
 }

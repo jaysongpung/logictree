@@ -1,6 +1,7 @@
 let state = {
   nickname: (localStorage.getItem('lt_nickname') || '').toLowerCase() || null,
   isTeacher: localStorage.getItem('lt_isTeacher') === 'true',
+  dashboardFilter: localStorage.getItem('lt_dashboardFilter') || '',
 };
 
 const listeners = [];
@@ -17,6 +18,9 @@ export function setState(partial) {
   }
   if ('isTeacher' in partial) {
     localStorage.setItem('lt_isTeacher', String(state.isTeacher));
+  }
+  if ('dashboardFilter' in partial) {
+    localStorage.setItem('lt_dashboardFilter', partial.dashboardFilter);
   }
   listeners.forEach((fn) => fn(state));
 }

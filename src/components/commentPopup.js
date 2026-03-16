@@ -58,24 +58,30 @@ export function showCommentPopup(targetId, anchorEl, onPost) {
   input.focus();
 
   async function loadComments() {
-    const comments = await getComments(targetId);
-    listContainer.innerHTML = '';
-    if (comments.length === 0) {
-      listContainer.appendChild(el('p', { className: 'text-sm text-gray-400 text-center py-2' }, '아직 댓글이 없습니다.'));
-    } else {
-      comments.forEach((c) => {
-        listContainer.appendChild(
-          el('div', { className: 'bg-gray-50 rounded-lg px-3 py-2' },
-            el('div', { className: 'flex items-center justify-between mb-1' },
-              el('span', { className: 'text-xs font-medium text-gray-700' }, c.author),
-              el('span', { className: 'text-xs text-gray-400' }, formatDate(c.createdAt)),
-            ),
-            el('p', { className: 'text-sm text-gray-600' }, c.text),
-          )
-        );
-      });
+    try {
+      const comments = await getComments(targetId);
+      listContainer.innerHTML = '';
+      if (comments.length === 0) {
+        listContainer.appendChild(el('p', { className: 'text-sm text-gray-400 text-center py-2' }, '아직 댓글이 없습니다.'));
+      } else {
+        comments.forEach((c) => {
+          listContainer.appendChild(
+            el('div', { className: 'bg-gray-50 rounded-lg px-3 py-2' },
+              el('div', { className: 'flex items-center justify-between mb-1' },
+                el('span', { className: 'text-xs font-medium text-gray-700' }, c.author),
+                el('span', { className: 'text-xs text-gray-400' }, formatDate(c.createdAt)),
+              ),
+              el('p', { className: 'text-sm text-gray-600' }, c.text),
+            )
+          );
+        });
+      }
+      listContainer.scrollTop = 0;
+    } catch (err) {
+      listContainer.innerHTML = '';
+      listContainer.appendChild(el('p', { className: 'text-sm text-red-400 text-center py-2' }, '댓글을 불러오는 중 오류가 발생했습니다.'));
+      console.error('댓글 로딩 오류:', err);
     }
-    listContainer.scrollTop = listContainer.scrollHeight;
   }
 
   loadComments();
