@@ -4,8 +4,8 @@ import { getAllProjects } from '../firebase.js';
 const WEEKS = [
   { label: '전체', start: null, end: null },
   { label: '1주차', start: new Date(2026, 2, 10, 9, 0), end: new Date(2026, 2, 17, 9, 0) },
-  { label: '2주차', start: new Date(2026, 2, 17, 9, 0), end: new Date(2026, 2, 24, 9, 0) },
-  { label: '3주차', start: new Date(2026, 2, 24, 9, 0), end: new Date(2026, 2, 31, 9, 0) },
+  { label: '2주차', start: new Date(2026, 2, 17, 13, 0), end: new Date(2026, 2, 24, 0, 0) },
+  { label: '3주차', start: new Date(2026, 2, 24, 13, 0), end: new Date(2026, 2, 31, 0, 0) },
 ];
 
 export async function showStatusPopup() {
