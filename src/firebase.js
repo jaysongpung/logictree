@@ -11,6 +11,9 @@ import {
   setDoc,
   query,
   where,
+  orderBy,
+  limit,
+  startAfter,
   serverTimestamp,
 } from 'firebase/firestore';
 
@@ -38,6 +41,20 @@ export async function getProjects(nicknameFilter = null) {
       const tb = (b.submittedAt || b.createdAt)?.toMillis?.() || 0;
       return tb - ta;
     });
+}
+
+export async function getProjectsPage(cursor = null, pageSize = 20) {
+  const constraints = [
+    where('status', '==', 'submitted'),
+    orderBy('createdAt', 'desc'),
+    limit(pageSize),
+  ];
+  if (cursor) constraints.push(startAfter(cursor));
+  const q = query(collection(db, 'projects'), ...constraints);
+  const snapshot = await getDocs(q);
+  const projects = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const lastDoc = snapshot.docs[snapshot.docs.length - 1] || null;
+  return { projects, lastDoc, hasMore: snapshot.docs.length === pageSize };
 }
 
 export async function getProject(id) {

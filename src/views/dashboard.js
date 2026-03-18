@@ -1,7 +1,7 @@
 import { el, clearAndAppend, formatDate } from '../utils/dom.js';
 import { getState } from '../state.js';
 import { navigate } from '../router.js';
-import { getProjects, loadDrafts, getCommentCountsForProject, getLikeCountsForProjects } from '../firebase.js';
+import { getProjects, getProjectsPage, loadDrafts, getCommentCountsForProject, getLikeCountsForProjects } from '../firebase.js';
 import { renderNavbar } from '../components/navbar.js';
 import { renderProjectCard } from '../components/projectCard.js';
 
@@ -103,55 +103,90 @@ export async function renderDashboard(container) {
   content.appendChild(header);
   content.appendChild(grid);
 
-  const PAGE_SIZE = 20;
-  let allProjects = [];
-  let allCommentResults = [];
-  let allLikeCounts = {};
-  let displayedCount = 0;
+  let cursor = null;
+  let hasMore = false;
   let moreBtn = null;
+  let currentFilter = null;
 
-  function appendPage() {
-    const next = allProjects.slice(displayedCount, displayedCount + PAGE_SIZE);
-    next.forEach((p, i) => {
-      const idx = displayedCount + i;
-      const { total, latestAt } = allCommentResults[idx];
+  async function renderCards(projects) {
+    const projectIds = projects.map((p) => p.id);
+    const [commentResults, likeCounts] = await Promise.all([
+      Promise.all(projects.map((p) => getCommentCountsForProject(p.id))),
+      projectIds.length > 0 ? getLikeCountsForProjects(projectIds) : {},
+    ]);
+    projects.forEach((p, i) => {
+      const { total, latestAt } = commentResults[i];
       const lastSeen = parseInt(localStorage.getItem(`lastSeen_${p.id}`) || '0', 10);
       const maxLatest = Object.values(latestAt).reduce((a, b) => Math.max(a, b), 0);
       const hasNew = maxLatest > lastSeen;
-      grid.appendChild(renderProjectCard(p, () => load(filterInput.value.trim()), total, hasNew, allLikeCounts[p.id] || 0));
+      grid.appendChild(renderProjectCard(p, () => load(currentFilter), total, hasNew, likeCounts[p.id] || 0));
     });
-    displayedCount += next.length;
+  }
 
+  async function loadMore() {
     if (moreBtn) moreBtn.remove();
-    if (displayedCount < allProjects.length) {
-      moreBtn = el('button', {
-        className: 'w-full py-3 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors',
-        onclick: () => appendPage(),
-      }, `더보기 (${allProjects.length - displayedCount}개 남음)`);
-      grid.appendChild(moreBtn);
+    const loading = el('p', { className: 'text-sm text-gray-400 text-center py-3' }, '불러오는 중...');
+    grid.appendChild(loading);
+    try {
+      if (currentFilter) {
+        // filtered: already loaded all, no more
+        loading.remove();
+        return;
+      }
+      const result = await getProjectsPage(cursor, 20);
+      cursor = result.lastDoc;
+      hasMore = result.hasMore;
+      loading.remove();
+      await renderCards(result.projects);
+      if (hasMore) {
+        moreBtn = el('button', {
+          className: 'w-full py-3 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors',
+          onclick: () => loadMore(),
+        }, '더보기');
+        grid.appendChild(moreBtn);
+      }
+    } catch (err) {
+      loading.remove();
+      console.error(err);
     }
   }
 
   async function load(filter) {
     grid.innerHTML = '';
-    displayedCount = 0;
+    cursor = null;
+    hasMore = false;
     moreBtn = null;
+    currentFilter = filter || null;
     grid.appendChild(el('p', { className: 'text-sm text-gray-400 text-center py-8' }, '불러오는 중...'));
     try {
-      allProjects = await getProjects(filter || null);
-      const projectIds = allProjects.map((p) => p.id);
-      const [commentResults, likeCounts] = await Promise.all([
-        Promise.all(allProjects.map((p) => getCommentCountsForProject(p.id))),
-        projectIds.length > 0 ? getLikeCountsForProjects(projectIds) : {},
-      ]);
-      allCommentResults = commentResults;
-      allLikeCounts = likeCounts;
-      grid.innerHTML = '';
-      if (allProjects.length === 0) {
-        grid.appendChild(el('p', { className: 'text-sm text-gray-400 text-center py-12' }, '아직 제출된 프로젝트가 없습니다.'));
-        return;
+      if (currentFilter) {
+        // filtered: fetch all (small result set)
+        const projects = await getProjects(currentFilter);
+        grid.innerHTML = '';
+        if (projects.length === 0) {
+          grid.appendChild(el('p', { className: 'text-sm text-gray-400 text-center py-12' }, '아직 제출된 프로젝트가 없습니다.'));
+          return;
+        }
+        await renderCards(projects);
+      } else {
+        // unfiltered: paginated
+        const result = await getProjectsPage(null, 20);
+        cursor = result.lastDoc;
+        hasMore = result.hasMore;
+        grid.innerHTML = '';
+        if (result.projects.length === 0) {
+          grid.appendChild(el('p', { className: 'text-sm text-gray-400 text-center py-12' }, '아직 제출된 프로젝트가 없습니다.'));
+          return;
+        }
+        await renderCards(result.projects);
+        if (hasMore) {
+          moreBtn = el('button', {
+            className: 'w-full py-3 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors',
+            onclick: () => loadMore(),
+          }, '더보기');
+          grid.appendChild(moreBtn);
+        }
       }
-      appendPage();
     } catch (err) {
       grid.innerHTML = '';
       grid.appendChild(el('p', { className: 'text-sm text-red-400 text-center py-8' }, '데이터를 불러오는 중 오류가 발생했습니다.'));
