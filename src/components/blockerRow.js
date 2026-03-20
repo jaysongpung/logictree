@@ -64,11 +64,14 @@ export function renderBlockerRow(blocker, index, { onUpdate, onRemove, onComment
         }
       },
     }, icon);
-    // Non-teacher can see liked state but not click
+    // Non-teacher: only show icon if liked, no interaction
     if (!isTeacher) {
       if (!liked) return el('span', {});
-      btn.onclick = null;
-      btn.classList.add('cursor-default');
+      const staticIcon = el('span', {
+        className: 'inline-flex items-center rounded-md p-1 shrink-0 text-amber-500',
+        title: '미니따봉',
+      }, thumbsUpIcon(14));
+      return staticIcon;
     }
     return btn;
   }
