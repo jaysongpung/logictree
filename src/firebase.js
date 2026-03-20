@@ -46,7 +46,7 @@ export async function getProjects(nicknameFilter = null) {
 export async function getProjectsPage(cursor = null, pageSize = 20) {
   const constraints = [
     where('status', '==', 'submitted'),
-    orderBy('createdAt', 'desc'),
+    orderBy('sortAt', 'desc'),
     limit(pageSize),
   ];
   if (cursor) constraints.push(startAfter(cursor));
@@ -78,7 +78,7 @@ export async function saveProject(data) {
 }
 
 export async function submitProject(id) {
-  await updateDoc(doc(db, 'projects', id), { status: 'submitted', submittedAt: serverTimestamp() });
+  await updateDoc(doc(db, 'projects', id), { status: 'submitted', submittedAt: serverTimestamp(), sortAt: serverTimestamp() });
 }
 
 export async function toggleBadge(id, currentBadge) {
